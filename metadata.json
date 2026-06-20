@@ -1,0 +1,6 @@
+{
+  "name": "Minimalist Launcher",
+  "description": "A minimalist Android launcher inspired by Minimalist Phone, designed to reduce screen usage and boost digital wellbeing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
