@@ -12,6 +12,7 @@ interface LauncherRepository {
 
     // --- App Fetching & Operations ---
     fun getInstalledAppsFlow(context: Context): Flow<List<AppInfo>>
+    fun refreshAppsList()
     suspend fun getAppConfig(packageName: String): AppInfo?
     suspend fun setFavorite(packageName: String, isFavorite: Boolean)
     suspend fun setWhitelisted(packageName: String, isWhitelisted: Boolean)

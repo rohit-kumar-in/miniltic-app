@@ -38,6 +38,8 @@ fun SettingsScreen(
     var showAppManagerDialog by remember { mutableStateOf(false) }
     var showSchedulesDialog by remember { mutableStateOf(false) }
     var showNotificationDigestDialog by remember { mutableStateOf(false) }
+    var showRestoreSchemaDialog by remember { mutableStateOf(false) }
+    var inputRestoreJson by remember { mutableStateOf("") }
     
     // For App Manager Dialogue
     var selectedAppToEdit by remember { mutableStateOf<AppInfo?>(null) }
@@ -127,8 +129,11 @@ fun SettingsScreen(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     Button(
                                         onClick = {
-                                            viewModel.purchasePremium()
-                                            Toast.makeText(context, "Premium Lifetime Subscription Activated!", Toast.LENGTH_SHORT).show()
+                                            viewModel.initiatePremiumSubscriptionFlow(context, "premium_lifetime") { success ->
+                                                if (success) {
+                                                    Toast.makeText(context, "Premium Lifetime Subscription Activated via Google Play Billing!", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
                                         },
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = MaterialTheme.colorScheme.primary,
@@ -142,8 +147,11 @@ fun SettingsScreen(
                                     
                                     OutlinedButton(
                                         onClick = {
-                                            viewModel.purchasePremium()
-                                            Toast.makeText(context, "Premium Billing Subscribed!", Toast.LENGTH_SHORT).show()
+                                            viewModel.initiatePremiumSubscriptionFlow(context, "premium_monthly") { success ->
+                                                if (success) {
+                                                    Toast.makeText(context, "Premium Monthly Subscription Subscribed via Google Play Billing!", Toast.LENGTH_LONG).show()
+                                                }
+                                            }
                                         },
                                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                                         shape = RoundedCornerShape(4.dp),
@@ -194,9 +202,19 @@ fun SettingsScreen(
                 // Custom Font Selector Row
                 item {
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("Custom Font Styles", fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                        val fonts = listOf("SansSerif" to "Sans", "Monospace" to "Mono", "Serif" to "Serif")
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Custom Font Styles & Packs", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        val fonts = listOf(
+                            "SansSerif" to "Sans", 
+                            "Monospace" to "Mono", 
+                            "Serif" to "Serif",
+                            "cursive" to "Cursive",
+                            "sans-serif-condensed" to "Condensed",
+                            "sans-serif-black" to "Black"
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
                             fonts.forEach { (key, display) ->
                                 val active = state.themeFont.equals(key, ignoreCase = true)
                                 OutlinedButton(
@@ -206,9 +224,56 @@ fun SettingsScreen(
                                         contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
                                     ),
                                     border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier.weight(1f).height(34.dp),
+                                    contentPadding = PaddingValues(horizontal = 2.dp)
+                                ) {
+                                    Text(display, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Grid Size Customization Row
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Custom Grid Layout Columns", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(1, 2, 3, 4).forEach { cols ->
+                                val active = state.gridColumns == cols
+                                OutlinedButton(
+                                    onClick = { viewModel.setGridColumns(cols) },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
                                     modifier = Modifier.weight(1f).height(34.dp)
                                 ) {
-                                    Text(display, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text(if (cols == 1) "List" else "${cols}x${cols}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Dock Scale Selection Row
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Navigation Bottom Dock Scale", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf(0.8f, 1.0f, 1.2f, 1.4f).forEach { scale ->
+                                val active = state.dockScale == scale
+                                OutlinedButton(
+                                    onClick = { viewModel.setDockScale(scale) },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier.weight(1f).height(34.dp)
+                                ) {
+                                    Text("${(scale * 100).toInt()}%", fontSize = 10.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -432,32 +497,84 @@ fun SettingsScreen(
                         // Backup button
                         OutlinedButton(
                             onClick = {
-                                val message = viewModel.requestBackup(context)
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                val json = viewModel.exportSettingsJson()
+                                try {
+                                    val clipboard = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                    val clip = android.content.ClipData.newPlainText("Minimal Launcher Settings Backup", json)
+                                    clipboard.setPrimaryClip(clip)
+                                    // Also save locally as a file
+                                    context.openFileOutput("launcher_backup_v4.json", android.content.Context.MODE_PRIVATE).use {
+                                        it.write(json.toByteArray())
+                                    }
+                                    Toast.makeText(context, "Backup JSON Schema copied to clipboard and saved to local file!", Toast.LENGTH_LONG).show()
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Backup failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                                }
                             },
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             modifier = Modifier.weight(1f).height(44.dp),
                             shape = RoundedCornerShape(4.dp)
                         ) {
-                            Text("BACKUP FILE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("EXPORT SCHEMA", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
 
                         // Restore button
                         OutlinedButton(
                             onClick = {
-                                val message = viewModel.requestRestore(context)
-                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                                showRestoreSchemaDialog = true
                             },
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
                             modifier = Modifier.weight(1f).height(44.dp),
                             shape = RoundedCornerShape(4.dp)
                         ) {
-                            Text("RESTORE BACKUP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("IMPORT / RESTORE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
+    }
+
+    if (showRestoreSchemaDialog) {
+        AlertDialog(
+            onDismissRequest = { showRestoreSchemaDialog = false },
+            title = { Text("Restore Settings Schema", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Paste your exported configuration JSON backup below to validate and overwrite system settings:", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                    OutlinedTextField(
+                        value = inputRestoreJson,
+                        onValueChange = { inputRestoreJson = it },
+                        modifier = Modifier.fillMaxWidth().height(150.dp),
+                        placeholder = { Text("{\n  \"version\": 4,\n  \"signature\": \"...\"\n}") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = MaterialTheme.colorScheme.primary,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline
+                        )
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val (success, text) = viewModel.restoreFromJson(inputRestoreJson)
+                        Toast.makeText(context, text, Toast.LENGTH_LONG).show()
+                        if (success) {
+                            showRestoreSchemaDialog = false
+                            inputRestoreJson = ""
+                        }
+                    }
+                ) {
+                    Text("VALIDATE & RESTORE", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRestoreSchemaDialog = false }) {
+                    Text("CANCEL")
+                }
+            },
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     }
 
     // Interactive Whitelist Selector dialogue
@@ -782,6 +899,28 @@ fun SettingsScreen(
                                 } else {
                                     "You missed ${socialNotifs.size} social threads (mostly chat alerts) and ${workNotifs.size} work-related digests. Relax. All priorities are safe!"
                                 },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text("AI Productivity Coach Alert:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                text = viewModel.getAIProductivityCoachAdvice(),
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Daily Mental Coaching Trend:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            Text(
+                                text = viewModel.getDailyInsights(),
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurface
                             )

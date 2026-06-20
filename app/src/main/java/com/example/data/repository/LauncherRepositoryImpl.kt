@@ -15,26 +15,50 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 class LauncherRepositoryImpl(
     private val dao: LauncherDao
 ) : LauncherRepository {
 
+    private val refreshSignal = MutableStateFlow(0)
+
+    override fun refreshAppsList() {
+        refreshSignal.value = refreshSignal.value + 1
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     override fun getInstalledAppsFlow(context: Context): Flow<List<AppInfo>> {
         val packageManager = context.packageManager
         
         // Flow that yields the static packages we resolve
-        val pmAppsFlow = flow {
-            val intent = Intent(Intent.ACTION_MAIN, null).apply {
-                addCategory(Intent.CATEGORY_LAUNCHER)
+        val pmAppsFlow = refreshSignal.flatMapLatest {
+            flow {
+                val intent = Intent(Intent.ACTION_MAIN, null).apply {
+                    addCategory(Intent.CATEGORY_LAUNCHER)
+                }
+                val launchables = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                    packageManager.queryIntentActivities(
+                        intent,
+                        android.content.pm.PackageManager.ResolveInfoFlags.of(android.content.pm.PackageManager.MATCH_ALL.toLong())
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    packageManager.queryIntentActivities(intent, 0)
+                }
+                val pmApps = launchables.mapNotNull { resolveInfo ->
+                    val activityInfo = resolveInfo.activityInfo ?: return@mapNotNull null
+                    val packageName = activityInfo.packageName ?: return@mapNotNull null
+                    if (packageName == context.packageName) return@mapNotNull null
+                    
+                    val rawLabel = resolveInfo.loadLabel(packageManager)?.toString()
+                    val label = if (rawLabel.isNullOrBlank()) packageName.substringAfterLast('.') else rawLabel
+                    packageName to label
+                }.distinctBy { it.first }
+                emit(pmApps)
             }
-            val launchables = packageManager.queryIntentActivities(intent, 0)
-            val pmApps = launchables.mapNotNull { resolveInfo ->
-                val packageName = resolveInfo.activityInfo.packageName
-                val label = resolveInfo.loadLabel(packageManager).toString()
-                if (packageName == context.packageName) null else packageName to label
-            }.distinctBy { it.first }
-            emit(pmApps)
         }
 
         // Live config settings flow from database
@@ -188,8 +212,20 @@ class LauncherRepositoryImpl(
         val intent = Intent(Intent.ACTION_MAIN, null).apply {
             addCategory(Intent.CATEGORY_LAUNCHER)
         }
-        val appLabels = pm.queryIntentActivities(intent, 0).associate {
-            it.activityInfo.packageName to it.loadLabel(pm).toString()
+        val launchables = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            pm.queryIntentActivities(
+                intent,
+                android.content.pm.PackageManager.ResolveInfoFlags.of(android.content.pm.PackageManager.MATCH_ALL.toLong())
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, 0)
+        }
+        val appLabels = launchables.associate { resolveInfo ->
+            val pkg = resolveInfo.activityInfo?.packageName ?: ""
+            val rawLabel = resolveInfo.loadLabel(pm)?.toString() ?: ""
+            val lbl = if (rawLabel.isBlank()) pkg.substringAfterLast('.') else rawLabel
+            pkg to lbl
         }
 
         val usageMap = mutableMapOf<String, Long>()

@@ -24,6 +24,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -329,21 +330,71 @@ fun HomeScreen(
                             contentPadding = PaddingValues(vertical = 12.dp)
                         ) {
                             if (filteredFavorites.isNotEmpty()) {
-                                items(filteredFavorites) { app ->
-                                    Text(
-                                        text = app.customLabel ?: app.label,
-                                        fontSize = 24.sp,
-                                        fontWeight = FontWeight.Light,
-                                        color = MaterialTheme.colorScheme.onBackground,
-                                        letterSpacing = (-0.5).sp,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .combinedClickable(
-                                                onClick = { viewModel.tryLaunchApp(context, app) },
-                                                onLongClick = { selectedAppForLongPress = app }
-                                            )
-                                            .padding(vertical = 4.dp)
-                                    )
+                                if (state.gridColumns <= 1) {
+                                    items(filteredFavorites) { app ->
+                                        Text(
+                                            text = app.customLabel ?: app.label,
+                                            fontSize = 24.sp,
+                                            fontWeight = FontWeight.Light,
+                                            color = MaterialTheme.colorScheme.onBackground,
+                                            letterSpacing = (-0.5).sp,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .combinedClickable(
+                                                    onClick = { viewModel.tryLaunchApp(context, app) },
+                                                    onLongClick = { selectedAppForLongPress = app }
+                                                )
+                                                .padding(vertical = 4.dp)
+                                        )
+                                    }
+                                } else {
+                                    val chunked = filteredFavorites.chunked(state.gridColumns)
+                                    items(chunked) { rowApps ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                                        ) {
+                                            rowApps.forEach { app ->
+                                                Column(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .combinedClickable(
+                                                            onClick = { viewModel.tryLaunchApp(context, app) },
+                                                            onLongClick = { selectedAppForLongPress = app }
+                                                        )
+                                                        .padding(vertical = 8.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    if (state.showAppIcons) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .size(48.dp)
+                                                                .background(MaterialTheme.colorScheme.secondary.copy(alpha = 0.1f), RoundedCornerShape(8.dp)),
+                                                            contentAlignment = Alignment.Center
+                                                        ) {
+                                                            Text(
+                                                                text = (app.customLabel ?: app.label).take(1).uppercase(),
+                                                                fontSize = 18.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = MaterialTheme.colorScheme.primary
+                                                            )
+                                                        }
+                                                        Spacer(modifier = Modifier.height(4.dp))
+                                                    }
+                                                    Text(
+                                                        text = app.customLabel ?: app.label,
+                                                        fontSize = 16.sp,
+                                                        fontWeight = FontWeight.Light,
+                                                        textAlign = TextAlign.Center,
+                                                        color = MaterialTheme.colorScheme.onBackground
+                                                    )
+                                                }
+                                            }
+                                            repeat(state.gridColumns - rowApps.size) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
                                 }
                             }
                             if (filteredOtherApps.isNotEmpty()) {
@@ -685,6 +736,10 @@ fun HomeScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .graphicsLayer {
+                        scaleX = state.dockScale
+                        scaleY = state.dockScale
+                    }
                     .padding(horizontal = 4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically

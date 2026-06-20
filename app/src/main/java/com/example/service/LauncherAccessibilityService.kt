@@ -43,11 +43,36 @@ class LauncherAccessibilityService : AccessibilityService() {
                     shouldBlock = true
                 }
 
-                // 2. Check general schedules (e.g., Sleep mode or Work boundaries)
-                val sleepModeActive = repo.getSetting("sleep_mode_active")?.toBoolean() ?: false
-                val workModeActive = repo.getSetting("work_mode_active")?.toBoolean() ?: false
-                if ((sleepModeActive || workModeActive) && !isWhitelisted) {
-                    shouldBlock = true
+                // 2. Check general schedules (Sleep schedule, Work schedule, and Weekend rules)
+                if (!isWhitelisted) {
+                    val sleepActive = repo.getSetting("sleep_active")?.toBoolean() ?: false
+                    if (sleepActive) {
+                        val sleepStart = repo.getSetting("sleep_start") ?: "22:00"
+                        val sleepEnd = repo.getSetting("sleep_end") ?: "07:00"
+                        val nowStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                        if (isTimeBetween(nowStr, sleepStart, sleepEnd)) {
+                            shouldBlock = true
+                        }
+                    }
+
+                    val workActive = repo.getSetting("work_active")?.toBoolean() ?: false
+                    if (workActive) {
+                        val workStart = repo.getSetting("work_start") ?: "09:00"
+                        val workEnd = repo.getSetting("work_end") ?: "17:00"
+                        val nowStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+                        if (isTimeBetween(nowStr, workStart, workEnd)) {
+                            shouldBlock = true
+                        }
+                    }
+
+                    val weekendActive = repo.getSetting("weekend_active")?.toBoolean() ?: false
+                    if (weekendActive) {
+                        val dayOfWeek = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+                        val isWeekend = dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
+                        if (isWeekend) {
+                            shouldBlock = true
+                        }
+                    }
                 }
 
                 // 3. Check time limit
@@ -71,6 +96,27 @@ class LauncherAccessibilityService : AccessibilityService() {
             } catch (e: Exception) {
                 Log.e("AccessibilityService", "Error filtering window transition event: ${e.message}")
             }
+        }
+    }
+
+    private fun isTimeBetween(nowStr: String, startStr: String, endStr: String): Boolean {
+        try {
+            val nowParts = nowStr.split(":")
+            val nowMins = (nowParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (nowParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            val startParts = startStr.split(":")
+            val startMins = (startParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (startParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            val endParts = endStr.split(":")
+            val endMins = (endParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (endParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            return if (startMins <= endMins) {
+                nowMins in startMins..endMins
+            } else {
+                nowMins >= startMins || nowMins <= endMins
+            }
+        } catch (e: Exception) {
+            return false
         }
     }
 

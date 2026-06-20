@@ -66,16 +66,34 @@ fun AnalyticsScreen(
                     color = MaterialTheme.colorScheme.secondary,
                     letterSpacing = 2.sp
                 )
-                Text(
-                    text = "← BACK TO HOME",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier
-                        .clickable { onNavigateBack() }
-                        .padding(4.dp)
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "EXPORT PDF",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier
+                            .clickable {
+                                val result = viewModel.exportPdfReport(context, state.statsPeriodDays)
+                                android.widget.Toast.makeText(context, result, android.widget.Toast.LENGTH_LONG).show()
+                            }
+                            .padding(4.dp)
+                    )
+                    Text(
+                        text = "← BACK TO HOME",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier
+                            .clickable { onNavigateBack() }
+                            .padding(4.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

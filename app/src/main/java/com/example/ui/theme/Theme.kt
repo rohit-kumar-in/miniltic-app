@@ -185,6 +185,9 @@ fun MyApplicationTheme(
     val selectedFont = when (fontName.lowercase()) {
         "monospace" -> FontFamily.Monospace
         "serif" -> FontFamily.Serif
+        "cursive" -> FontFamily.Cursive
+        "sans-serif-condensed" -> FontFamily.SansSerif
+        "sans-serif-black" -> FontFamily.SansSerif
         else -> FontFamily.Default
     }
 

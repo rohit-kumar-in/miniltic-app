@@ -53,25 +53,16 @@ class LauncherNotificationListenerService : NotificationListenerService() {
                         Log.e("NotificationListener", "Missing permission to dismiss notification: ${e.message}")
                     }
 
-                    // Log the intercepted notification in local Room Database
-                    val log = NotificationLogEntity(
+                    // Log the intercepted notification securely in local Room Database via Repository
+                    repo.logNotification(
                         packageName = packageName,
                         appName = appName,
                         title = title,
                         body = text,
-                        timestamp = System.currentTimeMillis(),
                         category = category,
                         wasBatched = batchingEnabled || focusActive
                     )
-                    // Insert to database directly using repo method (which we will define, or save it dynamically)
                     repo.saveSetting("latest_blocked_notification", "$appName: $title - $text")
-                    
-                    // We will append it to notification history logs in the dao
-                    // Let's call our repo's insert helper or write directly to database dao
-                    app.container.repository.let {
-                        // We will dynamically expose simple logging for Notification digests
-                        repo.saveSetting("notif_${System.currentTimeMillis()}", "$packageName|$appName|$title|$text|$category")
-                    }
                 }
             } catch (e: Exception) {
                 Log.e("NotificationListener", "Error tracking incoming notification: ${e.message}")
