@@ -20,12 +20,28 @@ data class LauncherUiState(
     val searchResults: List<AppInfo> = emptyList(),
     val searchQuery: String = "",
     val recentSearches: List<String> = emptyList(),
+    val recentApps: List<AppInfo> = emptyList(),
     
     // settings
     val isDarkMode: Boolean = true,
     val showAppIcons: Boolean = false,
     val globalDelaySeconds: Int = 0,
     val fontSizeMultiplier: Float = 1.0f,
+    
+    // customizable styling
+    val themeName: String = "Charcoal",
+    val themeFont: String = "SansSerif",
+    val isGrayscale: Boolean = false,
+    
+    // schedules & detox
+    val dailyGoalMinutes: Int = 60,
+    val sleepStartTime: String = "22:00",
+    val sleepEndTime: String = "07:00",
+    val sleepModeActive: Boolean = false,
+    val workStartTime: String = "09:00",
+    val workEndTime: String = "17:00",
+    val workModeActive: Boolean = false,
+    val weekendRulesActive: Boolean = false,
     
     // digital detox state
     val pendingLaunchApp: AppInfo? = null,
@@ -45,9 +61,19 @@ data class LauncherUiState(
     val launchLogs: List<LaunchLog> = emptyList(),
     val hasUsageStatsPermission: Boolean = false,
     
-    // notification stats
+    // notification features
     val batchNotificationsEnabled: Boolean = false,
-    val batchedCount: Int = 4
+    val batchedCount: Int = 4,
+    val notificationLogs: List<com.example.data.local.NotificationLogEntity> = emptyList(),
+    
+    // premium subscription rules
+    val isPremiumUser: Boolean = false,
+    val trialDaysRemaining: Int = 7,
+    
+    // Onboarding & default state check
+    val onboardingCompleted: Boolean = false,
+    val isDefaultLauncher: Boolean = false,
+    val isWizardCompleted: Boolean = false
 )
 
 class LauncherViewModel(
@@ -82,6 +108,25 @@ class LauncherViewModel(
                 val batchNotify = settings["batch_notify"]?.toBoolean() ?: false
                 val recentStr = settings["recent_searches"] ?: ""
                 val recents = if (recentStr.isEmpty()) emptyList() else recentStr.split(",")
+                
+                val theme = settings["theme_name"] ?: "Charcoal"
+                val font = settings["theme_font"] ?: "SansSerif"
+                val grayscale = settings["is_grayscale"]?.toBoolean() ?: false
+                
+                val dailyGoal = settings["daily_goal"]?.toIntOrNull() ?: 60
+                val sleepStart = settings["sleep_start"] ?: "22:00"
+                val sleepEnd = settings["sleep_end"] ?: "07:00"
+                val sleepActive = settings["sleep_active"]?.toBoolean() ?: false
+                
+                val workStart = settings["work_start"] ?: "09:00"
+                val workEnd = settings["work_end"] ?: "17:00"
+                val workActive = settings["work_active"]?.toBoolean() ?: false
+                val weekendActive = settings["weekend_active"]?.toBoolean() ?: false
+                
+                val isPremium = settings["is_premium"]?.toBoolean() ?: false
+                val trialDays = settings["trial_days"]?.toIntOrNull() ?: 7
+                val onboardingComplete = settings["onboarding_completed"]?.toBoolean() ?: false
+                val wizardComplete = settings["wizard_completed"]?.toBoolean() ?: false
 
                 _uiState.update {
                     it.copy(
@@ -90,7 +135,22 @@ class LauncherViewModel(
                         fontSizeMultiplier = fontSize,
                         globalDelaySeconds = globalDelay,
                         batchNotificationsEnabled = batchNotify,
-                        recentSearches = recents
+                        recentSearches = recents,
+                        themeName = theme,
+                        themeFont = font,
+                        isGrayscale = grayscale,
+                        dailyGoalMinutes = dailyGoal,
+                        sleepStartTime = sleepStart,
+                        sleepEndTime = sleepEnd,
+                        sleepModeActive = sleepActive,
+                        workStartTime = workStart,
+                        workEndTime = workEnd,
+                        workModeActive = workActive,
+                        weekendRulesActive = weekendActive,
+                        isPremiumUser = isPremium,
+                        trialDaysRemaining = trialDays,
+                        onboardingCompleted = onboardingComplete,
+                        isWizardCompleted = wizardComplete
                     )
                 }
             }
@@ -103,16 +163,64 @@ class LauncherViewModel(
             }
         }
 
-        // Observe Launch Logs
+        // Observe Launch Logs and Map Recent Apps
         viewModelScope.launch {
             repository.observeLaunchLogs().collect { logs ->
-                _uiState.update { it.copy(launchLogs = logs) }
+                _uiState.update { state ->
+                    val recentPkgNames = logs.sortedByDescending { it.timestamp }
+                        .map { it.packageName }
+                        .distinct()
+                        .take(4)
+                    val recentApps = recentPkgNames.map { pkg ->
+                        state.allApps.find { it.packageName == pkg } ?: AppInfo(pkg, pkg.substringAfterLast('.'))
+                    }
+                    state.copy(
+                        launchLogs = logs,
+                        recentApps = recentApps
+                    )
+                }
             }
+        }
+
+        // Observe Notification Logs
+        viewModelScope.launch {
+            repository.observeNotificationLogs().collect { logs ->
+                _uiState.update { it.copy(notificationLogs = logs) }
+            }
+        }
+    }
+
+    fun checkDefaultLauncher(context: Context) {
+        try {
+            val intent = Intent(Intent.ACTION_MAIN).apply {
+                addCategory(Intent.CATEGORY_HOME)
+            }
+            val resolveInfo = context.packageManager.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+            val isDefault = resolveInfo?.activityInfo?.packageName == context.packageName
+            _uiState.update { it.copy(isDefaultLauncher = isDefault) }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun completeOnboarding() {
+        viewModelScope.launch {
+            repository.saveSetting("onboarding_completed", "true")
+        }
+    }
+
+    fun completeWizard(selectedPackageNames: List<String>) {
+        viewModelScope.launch {
+            for (pkg in selectedPackageNames) {
+                repository.setFavorite(pkg, true)
+            }
+            repository.saveSetting("wizard_completed", "true")
         }
     }
 
     // Call on launch of launcher UI
     fun initializeApps(context: Context) {
+        checkDefaultLauncher(context)
         viewModelScope.launch {
             val permission = repository.hasUsagePermission(context)
             _uiState.update { it.copy(hasUsageStatsPermission = permission) }
@@ -165,14 +273,89 @@ class LauncherViewModel(
         }
     }
 
+    private fun isTimeBetween(nowStr: String, startStr: String, endStr: String): Boolean {
+        try {
+            val nowParts = nowStr.split(":")
+            val nowMins = (nowParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (nowParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            val startParts = startStr.split(":")
+            val startMins = (startParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (startParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            val endParts = endStr.split(":")
+            val endMins = (endParts.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (endParts.getOrNull(1)?.toIntOrNull() ?: 0)
+            
+            return if (startMins <= endMins) {
+                nowMins in startMins..endMins
+            } else {
+                nowMins >= startMins || nowMins <= endMins
+            }
+        } catch (e: Exception) {
+            return false
+        }
+    }
+
+    private fun isSleepScheduleActiveNow(): Boolean {
+        if (!_uiState.value.sleepModeActive) return false
+        return try {
+            val nowStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            isTimeBetween(nowStr, _uiState.value.sleepStartTime, _uiState.value.sleepEndTime)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isWorkScheduleActiveNow(): Boolean {
+        if (!_uiState.value.workModeActive) return false
+        return try {
+            val nowStr = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date())
+            isTimeBetween(nowStr, _uiState.value.workStartTime, _uiState.value.workEndTime)
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun isWeekendActiveNow(): Boolean {
+        if (!_uiState.value.weekendRulesActive) return false
+        val dayOfWeek = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_WEEK)
+        return dayOfWeek == java.util.Calendar.SATURDAY || dayOfWeek == java.util.Calendar.SUNDAY
+    }
+
     // --- App Launching with Digital Detox Delay ---
     fun tryLaunchApp(context: Context, app: AppInfo, onLaunchedDirectly: () -> Unit = {}) {
+        // Enforce active blocking schedules for non-whitelisted apps
+        if (!app.isWhitelisted) {
+            if (isSleepScheduleActiveNow()) {
+                android.widget.Toast.makeText(context, "LAUNCH BLOCKED: sleep Mode active (${_uiState.value.sleepStartTime} - ${_uiState.value.sleepEndTime})!", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+            if (isWorkScheduleActiveNow()) {
+                android.widget.Toast.makeText(context, "LAUNCH BLOCKED: Work Hours distraction limit active (${_uiState.value.workStartTime} - ${_uiState.value.workEndTime})!", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+            if (isWeekendActiveNow()) {
+                android.widget.Toast.makeText(context, "LAUNCH BLOCKED: Weekend offline detox rule active!", android.widget.Toast.LENGTH_LONG).show()
+                return
+            }
+            
+            // Check Daily App limit
+            val limitMinutes = app.limitMinutes
+            if (limitMinutes > 0) {
+                val usage = _uiState.value.appUsages.find { it.packageName == app.packageName }
+                val screenTimeMinutes = (usage?.screenTimeMs ?: 0L) / 60000L
+                if (screenTimeMinutes >= limitMinutes) {
+                    android.widget.Toast.makeText(context, "LAUNCH BLOCKED: Daily time limit ($limitMinutes mins) exceeded for ${app.customLabel ?: app.label}!", android.widget.Toast.LENGTH_LONG).show()
+                    return
+                }
+            }
+        }
+
         // 1. If app is whitelisted, or Focus Mode is inactive and delays are disabled, launch directly.
         val delayValue = if (app.openingDelaySeconds > 0) app.openingDelaySeconds else _uiState.value.globalDelaySeconds
         
         // Block non-whitelisted apps if focus mode is active
         if (_uiState.value.isFocusModeActive && !app.isWhitelisted) {
             // Cannot launch blocked application!
+            android.widget.Toast.makeText(context, "LAUNCH BLOCKED: Focus Mode is Currently Active!", android.widget.Toast.LENGTH_LONG).show()
             return
         }
 
@@ -434,6 +617,81 @@ class LauncherViewModel(
             }
         } catch (e: Exception) {
             "No backup file found to restore."
+        }
+    }
+
+    // --- Dynamic Audited Customization setters ---
+    fun setCustomTheme(themeName: String) {
+        viewModelScope.launch {
+            repository.saveSetting("theme_name", themeName)
+        }
+    }
+
+    fun setCustomFont(fontName: String) {
+        viewModelScope.launch {
+            repository.saveSetting("theme_font", fontName)
+        }
+    }
+
+    fun toggleGrayscale() {
+        viewModelScope.launch {
+            val next = !uiState.value.isGrayscale
+            repository.saveSetting("is_grayscale", next.toString())
+        }
+    }
+
+    fun updateDailyGoal(minutes: Int) {
+        viewModelScope.launch {
+            repository.saveSetting("daily_goal", minutes.toString())
+        }
+    }
+
+    fun updateSleepSchedule(start: String, end: String, active: Boolean) {
+        viewModelScope.launch {
+            repository.saveSetting("sleep_start", start)
+            repository.saveSetting("sleep_end", end)
+            repository.saveSetting("sleep_active", active.toString())
+        }
+    }
+
+    fun updateWorkSchedule(start: String, end: String, active: Boolean) {
+        viewModelScope.launch {
+            repository.saveSetting("work_start", start)
+            repository.saveSetting("work_end", end)
+            repository.saveSetting("work_active", active.toString())
+        }
+    }
+
+    fun toggleWeekendRules() {
+        viewModelScope.launch {
+            val next = !uiState.value.weekendRulesActive
+            repository.saveSetting("weekend_active", next.toString())
+        }
+    }
+
+    fun renameAppLabel(packageName: String, customLabel: String?) {
+        viewModelScope.launch {
+            repository.renameApp(packageName, customLabel)
+        }
+    }
+
+    fun setAppDurationLimit(packageName: String, limitMinutes: Int) {
+        viewModelScope.launch {
+            repository.setTimeLimit(packageName, limitMinutes)
+            // Save limit in general state settings table for service check convenience
+            repository.saveSetting("limit_$packageName", limitMinutes.toString())
+        }
+    }
+
+    fun purchasePremium() {
+        viewModelScope.launch {
+            repository.saveSetting("is_premium", "true")
+        }
+    }
+
+    fun clearNotifications() {
+        viewModelScope.launch {
+            repository.clearNotificationLogs()
         }
     }
 }

@@ -47,11 +47,13 @@ class LauncherRepositoryImpl(
                 val config = configMap[packageName]
                 AppInfo(
                     packageName = packageName,
-                    label = label,
+                    label = config?.customLabel ?: label, // Rename App integrated at local flow layer
                     isFavorite = config?.isFavorite ?: false,
                     isWhitelisted = config?.isWhitelisted ?: false,
                     isHidden = config?.isHidden ?: false,
-                    openingDelaySeconds = config?.openingDelaySeconds ?: 0
+                    openingDelaySeconds = config?.openingDelaySeconds ?: 0,
+                    customLabel = config?.customLabel,
+                    limitMinutes = config?.limitMinutes ?: 0
                 )
             }.sortedBy { it.label.lowercase() }
         }
@@ -61,11 +63,13 @@ class LauncherRepositoryImpl(
         val config = dao.getAppConfig(packageName) ?: return null
         return AppInfo(
             packageName = config.packageName,
-            label = "", // label will be populated dynamically or locally
+            label = config.customLabel ?: "",
             isFavorite = config.isFavorite,
             isWhitelisted = config.isWhitelisted,
             isHidden = config.isHidden,
-            openingDelaySeconds = config.openingDelaySeconds
+            openingDelaySeconds = config.openingDelaySeconds,
+            customLabel = config.customLabel,
+            limitMinutes = config.limitMinutes
         )
     }
 
@@ -90,6 +94,18 @@ class LauncherRepositoryImpl(
     override suspend fun setOpeningDelay(packageName: String, delaySeconds: Int) {
         val existing = dao.getAppConfig(packageName)
         val config = existing?.copy(openingDelaySeconds = delaySeconds) ?: AppConfigEntity(packageName, openingDelaySeconds = delaySeconds)
+        dao.insertAppConfig(config)
+    }
+
+    override suspend fun renameApp(packageName: String, customLabel: String?) {
+        val existing = dao.getAppConfig(packageName)
+        val config = existing?.copy(customLabel = customLabel) ?: AppConfigEntity(packageName, customLabel = customLabel)
+        dao.insertAppConfig(config)
+    }
+
+    override suspend fun setTimeLimit(packageName: String, limitMinutes: Int) {
+        val existing = dao.getAppConfig(packageName)
+        val config = existing?.copy(limitMinutes = limitMinutes) ?: AppConfigEntity(packageName, limitMinutes = limitMinutes)
         dao.insertAppConfig(config)
     }
 
@@ -196,5 +212,33 @@ class LauncherRepositoryImpl(
             }
             .filter { it.packageName != context.packageName && appLabels.containsKey(it.packageName) }
             .sortedByDescending { it.screenTimeMs }
+    }
+
+    override fun observeNotificationLogs(): Flow<List<NotificationLogEntity>> {
+        return dao.getAllNotificationLogs()
+    }
+
+    override suspend fun logNotification(
+        packageName: String,
+        appName: String,
+        title: String,
+        body: String,
+        category: String,
+        wasBatched: Boolean
+    ) {
+        val log = NotificationLogEntity(
+            packageName = packageName,
+            appName = appName,
+            title = title,
+            body = body,
+            timestamp = System.currentTimeMillis(),
+            category = category,
+            wasBatched = wasBatched
+        )
+        dao.insertNotificationLog(log)
+    }
+
+    override suspend fun clearNotificationLogs() {
+        dao.clearNotificationLogs()
     }
 }

@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">Minimalist Launcher</string>
+    <string name="accessibility_description">Deep detox focus manager. Detects when you open distracting apps and prompts a mindfulness pause or blocks access during scheduled focus times.</string>
+    <string name="notification_channel_name">Focus Timer Service</string>
+    <string name="notification_channel_description">Displays a persistent countdown and tracking metrics during active mindfulness detox schedules.</string>
 </resources>

@@ -133,6 +133,34 @@ fun SearchScreen(
                 }
             }
 
+            // Recent Apps Quick Row inside Search screen
+            if (state.recentApps.isNotEmpty() && state.searchQuery.isEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "RECENTLY LAUNCHED",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.secondary,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    state.recentApps.take(4).forEach { app ->
+                        AssistChip(
+                            onClick = { viewModel.tryLaunchApp(context, app) },
+                            label = { Text(app.customLabel ?: app.label, fontSize = 12.sp) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                labelColor = MaterialTheme.colorScheme.onBackground,
+                                containerColor = MaterialTheme.colorScheme.surface
+                            )
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // App Count & Back Header
@@ -185,7 +213,7 @@ fun SearchScreen(
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     items(state.searchResults) { app ->
-                        var currentLetter = app.label.firstOrNull()?.uppercaseChar() ?: '#'
+                        var currentLetter = (app.customLabel ?: app.label).firstOrNull()?.uppercaseChar() ?: '#'
                         
                         Row(
                             modifier = Modifier
@@ -213,7 +241,7 @@ fun SearchScreen(
 
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
-                                    text = app.label,
+                                    text = app.customLabel ?: app.label,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.Normal,
                                     color = MaterialTheme.colorScheme.onBackground
@@ -264,7 +292,7 @@ fun SearchScreen(
             onDismissRequest = { selectedAppForConfig = null },
             title = {
                 Text(
-                    text = freshApp.label,
+                    text = freshApp.customLabel ?: freshApp.label,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground

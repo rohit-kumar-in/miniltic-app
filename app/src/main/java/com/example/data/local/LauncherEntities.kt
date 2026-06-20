@@ -9,7 +9,9 @@ data class AppConfigEntity(
     val isFavorite: Boolean = false,
     val isWhitelisted: Boolean = false, // whitelisted from opening delay / Focus Mode
     val isHidden: Boolean = false,
-    val openingDelaySeconds: Int = 0 // 0 means use global delay or no delay
+    val openingDelaySeconds: Int = 0, // 0 means use global delay or no delay
+    val customLabel: String? = null,  // For Rename App feature
+    val limitMinutes: Int = 0          // For App Time Limit feature (0 = unlimited)
 )
 
 @Entity(tableName = "app_launch_logs")
@@ -35,3 +37,16 @@ data class SystemSettingsEntity(
     @PrimaryKey val key: String,
     val value: String
 )
+
+@Entity(tableName = "notification_logs")
+data class NotificationLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val packageName: String,
+    val appName: String,
+    val title: String,
+    val body: String,
+    val timestamp: Long,
+    val category: String, // Social, Work, Personal, General
+    val wasBatched: Boolean
+)
+

@@ -6,7 +6,9 @@ data class AppInfo(
     val isFavorite: Boolean = false,
     val isWhitelisted: Boolean = false,
     val isHidden: Boolean = false,
-    val openingDelaySeconds: Int = 0
+    val openingDelaySeconds: Int = 0,
+    val customLabel: String? = null,
+    val limitMinutes: Int = 0
 )
 
 data class FocusSession(

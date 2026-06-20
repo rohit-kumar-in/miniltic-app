@@ -8,7 +8,8 @@ import androidx.room.RoomDatabase
         AppConfigEntity::class,
         AppLaunchLogEntity::class,
         FocusSessionEntity::class,
-        SystemSettingsEntity::class
+        SystemSettingsEntity::class,
+        NotificationLogEntity::class
     ],
     version = 1,
     exportSchema = false

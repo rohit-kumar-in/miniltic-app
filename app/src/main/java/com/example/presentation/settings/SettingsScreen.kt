@@ -26,6 +26,7 @@ import com.example.domain.model.AppInfo
 import com.example.presentation.LauncherUiState
 import com.example.presentation.LauncherViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     state: LauncherUiState,
@@ -34,6 +35,22 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     var showWhitelistDialog by remember { mutableStateOf(false) }
+    var showAppManagerDialog by remember { mutableStateOf(false) }
+    var showSchedulesDialog by remember { mutableStateOf(false) }
+    var showNotificationDigestDialog by remember { mutableStateOf(false) }
+    
+    // For App Manager Dialogue
+    var selectedAppToEdit by remember { mutableStateOf<AppInfo?>(null) }
+    var tempCustomLabel by remember { mutableStateOf("") }
+    var tempTimeLimitMinutes by remember { mutableStateOf("") }
+
+    // For Schedules
+    var sleepStart by remember { mutableStateOf(state.sleepStartTime) }
+    var sleepEnd by remember { mutableStateOf(state.sleepEndTime) }
+    var sleepActive by remember { mutableStateOf(state.sleepModeActive) }
+    var workStart by remember { mutableStateOf(state.workStartTime) }
+    var workEnd by remember { mutableStateOf(state.workEndTime) }
+    var workActive by remember { mutableStateOf(state.workModeActive) }
 
     Box(
         modifier = Modifier
@@ -50,7 +67,7 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "LAUNCHER SETTINGS",
+                    text = "LAUNCHER DETOX CONFIG",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.secondary,
@@ -68,7 +85,7 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Settings scroll container
             LazyColumn(
@@ -79,29 +96,142 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 
-                // Item 1: Theme Mode toggle
+                // PREMIUM SUBSCRIPTION SECTION
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = if (state.isPremiumUser) "★ DEEP WORK DETOX PREMIUM" else "★ DETOX BASIC TRIAL",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                letterSpacing = 1.5.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (state.isPremiumUser) {
+                                    "Premium membership active. Enjoy limitless schedules, premium themes, and infinite Pomodoros!"
+                                } else {
+                                    "Free trial: ${state.trialDaysRemaining} days remaining. Upgrade today to unlock infinite customized layouts."
+                                },
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (!state.isPremiumUser) {
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            viewModel.purchasePremium()
+                                            Toast.makeText(context, "Premium Lifetime Subscription Activated!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        ),
+                                        shape = RoundedCornerShape(4.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("Go Premium (One-Time)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    
+                                    OutlinedButton(
+                                        onClick = {
+                                            viewModel.purchasePremium()
+                                            Toast.makeText(context, "Premium Billing Subscribed!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                                        shape = RoundedCornerShape(4.dp),
+                                        modifier = Modifier.height(34.dp)
+                                    ) {
+                                        Text("Subscribe Monthly", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Text(
+                        text = "AESTHETICS & BRANDING",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary,
+                        letterSpacing = 1.sp,
+                    )
+                }
+
+                // Custom Themes Row
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Color Palette Theme", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        val themes = listOf("Charcoal", "Forest", "Sunset", "Indigo")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(themes) { t ->
+                                val active = state.themeName.equals(t, ignoreCase = true)
+                                OutlinedButton(
+                                    onClick = { viewModel.setCustomTheme(t) },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier.height(34.dp)
+                                ) {
+                                    Text(t, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Custom Font Selector Row
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text("Custom Font Styles", fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                        val fonts = listOf("SansSerif" to "Sans", "Monospace" to "Mono", "Serif" to "Serif")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            fonts.forEach { (key, display) ->
+                                val active = state.themeFont.equals(key, ignoreCase = true)
+                                OutlinedButton(
+                                    onClick = { viewModel.setCustomFont(key) },
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        containerColor = if (active) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                        contentColor = if (active) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onBackground
+                                    ),
+                                    border = BorderStroke(1.dp, if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline),
+                                    modifier = Modifier.weight(1f).height(34.dp)
+                                ) {
+                                    Text(display, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Grayscale Mode Selector Toggle
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { viewModel.toggleDarkMode() }
-                            .padding(vertical = 4.dp),
+                            .clickable { viewModel.toggleGrayscale() }
+                            .padding(vertical = 2.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "Dark Theme", tint = MaterialTheme.colorScheme.secondary)
-                            Column {
-                                Text("Aesthetic Theme", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                Text(if (state.isDarkMode) "Pure Distraction-Free Dark" else "Eye-Safe Light", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
+                        Column {
+                            Text("Grayscale Screen Filter", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Dulls system vibrancy to reduce addictive loop cravings", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                         }
                         Switch(
-                            checked = state.isDarkMode,
-                            onCheckedChange = { viewModel.toggleDarkMode() },
+                            checked = state.isGrayscale,
+                            onCheckedChange = { viewModel.toggleGrayscale() },
                             colors = SwitchDefaults.colors(
                                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = MaterialTheme.colorScheme.primary
@@ -110,53 +240,13 @@ fun SettingsScreen(
                     }
                 }
 
-                // Item 2: Show/Hide App Icons
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { viewModel.toggleShowAppIcons() }
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "App Icons Display", tint = MaterialTheme.colorScheme.secondary)
-                            Column {
-                                Text("Show Installed App Icons", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                Text("Hiding icons decreases immediate brain urges", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
-                        }
-                        Switch(
-                            checked = state.showAppIcons,
-                            onCheckedChange = { viewModel.toggleShowAppIcons() },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                                checkedTrackColor = MaterialTheme.colorScheme.primary
-                            )
-                        )
-                    }
-                }
-
-                // Item 3: Font Size multiplier selection
+                // Text size multiplier
                 item {
                     Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "Font settings", tint = MaterialTheme.colorScheme.secondary)
-                            Text("Text Size Adjustment", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                        }
-
+                        Text("Text Size Adjustment", fontSize = 15.sp, fontWeight = FontWeight.Medium)
                         val sizes = listOf(0.85f to "Fine", 1.0f to "Standard", 1.15f to "Comfort", 1.3f to "Giga")
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -180,23 +270,61 @@ fun SettingsScreen(
                     }
                 }
 
-                // Item 4: Global detox loading pause delay
                 item {
-                    Column(
+                    Text(
+                        text = "FOCUS BOUNDARIES & TIME GOALS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary,
+                        letterSpacing = 1.sp,
+                    )
+                }
+
+                // App Organizer dialogue trigger
+                item {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(vertical = 4.dp),
+                            .clickable { showAppManagerDialog = true }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Rename Apps & Set Limits", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Alter labels or define maximum daily open durations", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text("MANAGE →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                // Focus boundaries / schedules dialogue trigger
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showSchedulesDialog = true }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Blocking Schedules", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Work hours mode, bed sleep limits and weekend rules", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text("Schedules →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                // Item 4: Global delay pause configuration
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "Pause screen settings", tint = MaterialTheme.colorScheme.secondary)
-                            Column {
-                                Text("Global Opening Detox Delay", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                Text("Puts a mindfulness pause before launching any app", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
+                        Column {
+                            Text("Global Launch Mindfulness Pause", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Puts an active digital timeout delay before any non-whitelisted launch", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                         }
 
                         val delays = listOf(0, 5, 15, 30, 45, 60)
@@ -222,50 +350,57 @@ fun SettingsScreen(
                     }
                 }
 
-                // Item 5: Whitelisted applications Dialog trigger
+                // Whitelisted applications Dialog trigger
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { showWhitelistDialog = true }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "Whitelist Selector", tint = MaterialTheme.colorScheme.secondary)
-                            Column {
-                                Text("Exempt/Whitelisted Applications", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                val count = state.allApps.count { it.isWhitelisted }
-                                Text("$count applications allowed to skip detox delays", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
+                        Column {
+                            Text("Exempt Whitelisted Apps", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            val count = state.allApps.count { it.isWhitelisted }
+                            Text("$count applications bypass detox schedules and delay pauses", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                         }
                         Text("EDIT →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 }
 
-                // Item 6: Batch Notification management
+                // Dynamic Notification batch digest options
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showNotificationDigestDialog = true }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Notification Digest & Summary", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            val totalIntercepted = state.notificationLogs.size
+                            Text("$totalIntercepted batched alerts categorized & summarized", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text("VIEW DIGEST →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+
+                // Show batch notification toggle block
                 item {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { viewModel.toggleBatchNotifications() }
-                            .padding(vertical = 4.dp),
+                            .padding(vertical = 2.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Outlined.Info, contentDescription = "Batched Alerts", tint = MaterialTheme.colorScheme.secondary)
-                            Column {
-                                Text("Batch Notifications summary", fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                                Text("Suppress and digest notifications in batches", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
-                            }
+                        Column {
+                            Text("Suppress Notifications Instantly", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Redirect system alerts to Batched digest summary", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
                         }
                         Switch(
                             checked = state.batchNotificationsEnabled,
@@ -278,10 +413,9 @@ fun SettingsScreen(
                     }
                 }
 
-                // Item 7: Backup/Restore triggers (File saving)
                 item {
                     Text(
-                        text = "MAINTENANCE & RECOVERY",
+                        text = "MAINTENANCE & DATABASE RECOVERY",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.secondary,
@@ -305,13 +439,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f).height(44.dp),
                             shape = RoundedCornerShape(4.dp)
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Info, contentDescription = "Backup settings", modifier = Modifier.size(16.dp))
-                                Text("BACKUP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Text("BACKUP FILE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
 
                         // Restore button
@@ -324,13 +452,7 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f).height(44.dp),
                             shape = RoundedCornerShape(4.dp)
                         ) {
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(Icons.Outlined.Info, contentDescription = "Restore settings", modifier = Modifier.size(16.dp))
-                                Text("RESTORE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
+                            Text("RESTORE BACKUP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -338,7 +460,7 @@ fun SettingsScreen(
         }
     }
 
-    // Interactive Whitelist Selector nested dialogue
+    // Interactive Whitelist Selector dialogue
     if (showWhitelistDialog) {
         AlertDialog(
             onDismissRequest = { showWhitelistDialog = false },
@@ -359,7 +481,7 @@ fun SettingsScreen(
                         modifier = Modifier.padding(bottom = 12.dp)
                     )
 
-                    Divider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
 
                     LazyColumn(
                         modifier = Modifier.fillMaxWidth().weight(1f),
@@ -373,7 +495,7 @@ fun SettingsScreen(
                                     .padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
-                            ) {
+                              ) {
                                 Text(app.label, fontSize = 14.sp)
                                 Checkbox(
                                     checked = app.isWhitelisted,
@@ -394,6 +516,329 @@ fun SettingsScreen(
                 }
             },
             containerColor = MaterialTheme.colorScheme.surface
+        )
+    }
+
+    // App Manager Dialog (Rename Labels & Set Time Limits)
+    if (showAppManagerDialog) {
+        AlertDialog(
+            onDismissRequest = { showAppManagerDialog = false },
+            title = {
+                Text(
+                    text = "App Organizer & Limits",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                    if (selectedAppToEdit == null) {
+                        Text(
+                            text = "Choose an application to rename or define a maximum daily usage limit.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        LazyColumn(
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            items(state.allApps) { app ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            selectedAppToEdit = app
+                                            tempCustomLabel = app.customLabel ?: app.label
+                                            tempTimeLimitMinutes = if (app.limitMinutes > 0) app.limitMinutes.toString() else ""
+                                        }
+                                        .padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column {
+                                        Text(app.label, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        if (app.customLabel != null) {
+                                            Text("Renamed from original", fontSize = 11.sp, color = MaterialTheme.colorScheme.primary)
+                                        }
+                                    }
+                                    Text(
+                                        text = if (app.limitMinutes > 0) "${app.limitMinutes} min limit" else "No limit",
+                                        fontSize = 12.sp,
+                                        color = MaterialTheme.colorScheme.secondary
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        // Edit detail panel
+                        val app = selectedAppToEdit!!
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("Editing: ${app.packageName}", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                            
+                            OutlinedTextField(
+                                value = tempCustomLabel,
+                                onValueChange = { tempCustomLabel = it },
+                                label = { Text("App Display Name") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            OutlinedTextField(
+                                value = tempTimeLimitMinutes,
+                                onValueChange = { tempTimeLimitMinutes = it },
+                                label = { Text("Daily Time Limit (minutes)") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.renameAppLabel(app.packageName, tempCustomLabel.ifBlank { null })
+                                        val mins = tempTimeLimitMinutes.toIntOrNull() ?: 0
+                                        viewModel.setAppDurationLimit(app.packageName, mins)
+                                        Toast.makeText(context, "Saved app configurations!", Toast.LENGTH_SHORT).show()
+                                        selectedAppToEdit = null
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("SAVE")
+                                }
+                                OutlinedButton(
+                                    onClick = { selectedAppToEdit = null },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("BACK")
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                if (selectedAppToEdit == null) {
+                    TextButton(onClick = { showAppManagerDialog = false }) {
+                        Text("CLOSE")
+                    }
+                }
+            }
+        )
+    }
+
+    // Schedules Dialog (Sleep / Work Hour boundaries & Weekend rules)
+    if (showSchedulesDialog) {
+        AlertDialog(
+            onDismissRequest = { showSchedulesDialog = false },
+            title = { Text("Focus Schedules & Limits", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    
+                    // Daily focus goal minutes
+                    var dailyGoalStr by remember { mutableStateOf(state.dailyGoalMinutes.toString()) }
+                    OutlinedTextField(
+                        value = dailyGoalStr,
+                        onValueChange = { 
+                            dailyGoalStr = it
+                            it.toIntOrNull()?.let { mins -> viewModel.updateDailyGoal(mins) }
+                        },
+                        label = { Text("Daily Focus Goal (Minutes)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    HorizontalDivider()
+
+                    // Sleep Mode Options
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Sleep Mode Detoxing", fontWeight = FontWeight.Medium)
+                            Switch(checked = sleepActive, onCheckedChange = { sleepActive = it })
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = sleepStart,
+                                onValueChange = { sleepStart = it },
+                                label = { Text("Starts") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = sleepEnd,
+                                onValueChange = { sleepEnd = it },
+                                label = { Text("Ends") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    // Work hours
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Work Hours Distractions Block", fontWeight = FontWeight.Medium)
+                            Switch(checked = workActive, onCheckedChange = { workActive = it })
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(
+                                value = workStart,
+                                onValueChange = { workStart = it },
+                                label = { Text("Starts") },
+                                modifier = Modifier.weight(1f)
+                            )
+                            OutlinedTextField(
+                                value = workEnd,
+                                onValueChange = { workEnd = it },
+                                label = { Text("Ends") },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    // Weekend Rules Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Weekend Offline Rule", fontWeight = FontWeight.Medium)
+                            Text("Block addictive launch apps automatically on weekends", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Switch(checked = state.weekendRulesActive, onCheckedChange = { viewModel.toggleWeekendRules() })
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.updateSleepSchedule(sleepStart, sleepEnd, sleepActive)
+                        viewModel.updateWorkSchedule(workStart, workEnd, workActive)
+                        Toast.makeText(context, "Schedules initialized successfully!", Toast.LENGTH_SHORT).show()
+                        showSchedulesDialog = false
+                    }
+                ) {
+                    Text("APPLY & CLOSE")
+                }
+            }
+        )
+    }
+
+    // Dynamic Batched Notification Digest Summary Dialog
+    if (showNotificationDigestDialog) {
+        val workNotifs = state.notificationLogs.filter { it.category.equals("Work", ignoreCase = true) }
+        val socialNotifs = state.notificationLogs.filter { it.category.equals("Social", ignoreCase = true) }
+        val personalNotifs = state.notificationLogs.filter { it.category.equals("Personal", ignoreCase = true) }
+        val generalNotifs = state.notificationLogs.filter { it.category.equals("General", ignoreCase = true) }
+
+        AlertDialog(
+            onDismissRequest = { showNotificationDigestDialog = false },
+            title = { Text("Batched Notification Digest", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 380.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "To minimize dopamine spikes, alerts are batched into categorized lists. Here is your summarized digest.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.secondary
+                    )
+
+                    Text(
+                        text = "SMART SUMMARY GENERATION",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        letterSpacing = 1.sp
+                    )
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline)
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text("AI Digest Summary:", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(
+                                text = if (state.notificationLogs.isEmpty()) {
+                                    "No intercepted notifications to summarize. Your morning workspace is clean!"
+                                } else {
+                                    "You missed ${socialNotifs.size} social threads (mostly chat alerts) and ${workNotifs.size} work-related digests. Relax. All priorities are safe!"
+                                },
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    HorizontalDivider()
+
+                    // List counts
+                    Text("Alert Categories:", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("✉ WORK ENTRIES (${workNotifs.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(if (workNotifs.isNotEmpty()) "Pending digest" else "Empty", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("💬 SOCIAL PLATFORMS (${socialNotifs.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(if (socialNotifs.isNotEmpty()) "Pending sync" else "Empty", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("👤 PERSONAL INCOMING (${personalNotifs.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(if (personalNotifs.isNotEmpty()) "Batched" else "Empty", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                        item {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("⚙ GENERAL NOTIFICATIONS (${generalNotifs.size})", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Text(if (generalNotifs.isNotEmpty()) "Intercepted" else "Empty", fontSize = 11.sp, color = MaterialTheme.colorScheme.secondary)
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            viewModel.clearNotifications()
+                            Toast.makeText(context, "Notification Digest cleared successfully!", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        modifier = Modifier.fillMaxWidth().height(36.dp)
+                    ) {
+                        Text("CLEAR HISTORY DIGEST", fontSize = 11.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showNotificationDigestDialog = false }) {
+                    Text("CLOSE")
+                }
+            }
         )
     }
 }

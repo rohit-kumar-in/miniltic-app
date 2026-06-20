@@ -48,4 +48,14 @@ interface LauncherDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSetting(setting: SystemSettingsEntity)
+
+    // --- Notification Logs Queries ---
+    @Query("SELECT * FROM notification_logs ORDER BY timestamp DESC")
+    fun getAllNotificationLogs(): Flow<List<NotificationLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNotificationLog(log: NotificationLogEntity)
+
+    @Query("DELETE FROM notification_logs")
+    suspend fun clearNotificationLogs()
 }

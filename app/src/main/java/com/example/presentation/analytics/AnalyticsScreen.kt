@@ -103,6 +103,15 @@ fun AnalyticsScreen(
                         .clickable { viewModel.setStatsPeriod(7, context) }
                         .padding(vertical = 4.dp)
                 )
+                Text(
+                    text = "MONTHLY",
+                    fontSize = 16.sp,
+                    fontWeight = if (state.statsPeriodDays == 30) FontWeight.Bold else FontWeight.Normal,
+                    color = if (state.statsPeriodDays == 30) MaterialTheme.colorScheme.onBackground else MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier
+                        .clickable { viewModel.setStatsPeriod(30, context) }
+                        .padding(vertical = 4.dp)
+                )
             }
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -170,8 +179,10 @@ fun AnalyticsScreen(
             ) {
                 val chartPoints = if (state.statsPeriodDays == 1) {
                     listOf("8a" to 20, "12p" to 45, "4p" to 30, "8p" to 55, "12a" to 10)
-                } else {
+                } else if (state.statsPeriodDays == 7) {
                     listOf("M" to 120, "T" to 95, "W" to 150, "T" to 70, "F" to 110, "S" to 40, "S" to 25)
+                } else {
+                    listOf("W1" to 540, "W2" to 430, "W3" to 610, "W4" to 320)
                 }
 
                 val maxVal = chartPoints.maxOfOrNull { it.second } ?: 1

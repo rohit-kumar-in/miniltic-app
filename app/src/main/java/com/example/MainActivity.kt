@@ -49,8 +49,13 @@ class MainActivity : ComponentActivity() {
                 viewModel.initializeApps(applicationContext)
             }
 
-            // Material Theme reacts to Settings Dark/Light configuration!
-            MyApplicationTheme(darkTheme = state.isDarkMode) {
+            // Material Theme reacts to Settings configurations!
+            MyApplicationTheme(
+                darkTheme = state.isDarkMode,
+                themeName = state.themeName,
+                fontName = state.themeFont,
+                isGrayscale = state.isGrayscale
+            ) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
