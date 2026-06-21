@@ -50,3 +50,14 @@ data class NotificationLogEntity(
     val wasBatched: Boolean
 )
 
+@Entity(tableName = "life_value_logs")
+data class LifeValueLogEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0L,
+    val packageName: String,
+    val appName: String,
+    val timestamp: Long,
+    val durationMs: Long,
+    val valueCategory: String, // High Value, Medium Value, Low Value
+    val response: String
+)
+

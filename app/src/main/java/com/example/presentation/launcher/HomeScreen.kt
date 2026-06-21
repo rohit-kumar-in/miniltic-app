@@ -340,11 +340,20 @@ fun HomeScreen(
                                             letterSpacing = (-0.5).sp,
                                             modifier = Modifier
                                                 .fillMaxWidth()
+                                                .background(
+                                                    MaterialTheme.colorScheme.surfaceColorAtElevation(1.dp),
+                                                    RoundedCornerShape(12.dp)
+                                                )
+                                                .border(
+                                                    1.dp,
+                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.1f),
+                                                    RoundedCornerShape(12.dp)
+                                                )
                                                 .combinedClickable(
                                                     onClick = { viewModel.tryLaunchApp(context, app) },
                                                     onLongClick = { selectedAppForLongPress = app }
                                                 )
-                                                .padding(vertical = 4.dp)
+                                                .padding(horizontal = 16.dp, vertical = 12.dp)
                                         )
                                     }
                                 } else {

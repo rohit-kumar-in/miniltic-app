@@ -196,6 +196,34 @@ class LauncherRepositoryImpl(
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
+    override fun observeLifeValueLogs(): Flow<List<com.example.domain.model.LifeValueLog>> {
+        return dao.getAllLifeValueLogs().map { entities ->
+            entities.map {
+                com.example.domain.model.LifeValueLog(
+                    id = it.id,
+                    packageName = it.packageName,
+                    appName = it.appName,
+                    timestamp = it.timestamp,
+                    durationMs = it.durationMs,
+                    valueCategory = it.valueCategory,
+                    response = it.response
+                )
+            }
+        }
+    }
+
+    override suspend fun saveLifeValueLog(log: com.example.domain.model.LifeValueLog) {
+        val entity = LifeValueLogEntity(
+            packageName = log.packageName,
+            appName = log.appName,
+            timestamp = log.timestamp,
+            durationMs = log.durationMs,
+            valueCategory = log.valueCategory,
+            response = log.response
+        )
+        dao.insertLifeValueLog(entity)
+    }
+
     override fun getRealAppUsage(context: Context, periodDays: Int): List<AppUsage> {
         if (!hasUsagePermission(context)) return emptyList()
         val usageStatsManager = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return emptyList()

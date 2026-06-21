@@ -10,6 +10,9 @@ import kotlinx.coroutines.*
 class LauncherAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var currentForegroundApp: String? = null
+    private var currentForegroundStartTime: Long = 0L
+    private var promptTrackingJob: Job? = null
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
@@ -17,11 +20,49 @@ class LauncherAccessibilityService : AccessibilityService() {
         val targetPackage = event.packageName?.toString() ?: return
         val currentPackage = packageName // our launcher's package
 
-        if (targetPackage == currentPackage || targetPackage.isEmpty()) return
+        if (targetPackage == currentForegroundApp) return
 
-        // Access the app's database via LauncherRepository
+        // Save previous app usage
+        val previousApp = currentForegroundApp
+        val previousAppTimeMs = if (currentForegroundStartTime > 0) System.currentTimeMillis() - currentForegroundStartTime else 0L
+
+        currentForegroundApp = targetPackage
+        currentForegroundStartTime = System.currentTimeMillis()
+        
         val app = application as? LauncherApplication ?: return
         val repo = app.container.repository
+
+        // Trigger Life Value Reflection if previous app used for long time
+        if (previousApp != null && previousApp != currentPackage && previousAppTimeMs > 5 * 60 * 1000L) { // > 5 minutes
+            serviceScope.launch {
+                val intent = Intent(applicationContext, com.example.presentation.launcher.LifeValueReflectionActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("package_name", previousApp)
+                    putExtra("duration_ms", previousAppTimeMs)
+                }
+                startActivity(intent)
+            }
+        }
+
+        if (targetPackage == currentPackage || targetPackage.isEmpty()) {
+            promptTrackingJob?.cancel()
+            return
+        }
+
+        promptTrackingJob?.cancel()
+        // Wait for configurable interval to prompt during usage? 
+        // The prompt says "Trigger reflection prompts after configurable intervals"
+        promptTrackingJob = serviceScope.launch {
+            delay(15 * 60 * 1000L) // 15 mins
+            if (currentForegroundApp == targetPackage) {
+                val intent = Intent(applicationContext, com.example.presentation.launcher.LifeValueReflectionActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                    putExtra("package_name", targetPackage)
+                    putExtra("duration_ms", 15 * 60 * 1000L)
+                }
+                startActivity(intent)
+            }
+        }
 
         serviceScope.launch {
             try {

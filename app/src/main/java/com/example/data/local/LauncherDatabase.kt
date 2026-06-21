@@ -9,9 +9,10 @@ import androidx.room.RoomDatabase
         AppLaunchLogEntity::class,
         FocusSessionEntity::class,
         SystemSettingsEntity::class,
-        NotificationLogEntity::class
+        NotificationLogEntity::class,
+        LifeValueLogEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class LauncherDatabase : RoomDatabase() {

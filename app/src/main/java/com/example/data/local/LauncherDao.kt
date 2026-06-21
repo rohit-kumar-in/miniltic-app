@@ -58,4 +58,11 @@ interface LauncherDao {
 
     @Query("DELETE FROM notification_logs")
     suspend fun clearNotificationLogs()
+
+    // --- Life Value Logs Queries ---
+    @Query("SELECT * FROM life_value_logs ORDER BY timestamp DESC")
+    fun getAllLifeValueLogs(): Flow<List<LifeValueLogEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertLifeValueLog(log: LifeValueLogEntity)
 }

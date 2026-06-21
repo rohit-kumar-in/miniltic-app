@@ -39,3 +39,17 @@ data class BatchNotificationSetting(
     val batchIntervalMinutes: Int = 15,
     val focusModeActive: Boolean = false
 )
+
+data class LifeValueLog(
+    val id: Long = 0L,
+    val packageName: String,
+    val appName: String,
+    val timestamp: Long,
+    val durationMs: Long,
+    val valueCategory: String, // High Value, Medium Value, Low Value
+    val response: String
+)
+
+enum class WellnessState {
+    Focused, Balanced, Mindful, Distracted, Overloaded, Unknown
+}

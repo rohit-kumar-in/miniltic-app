@@ -43,4 +43,8 @@ interface LauncherRepository {
     // --- Analytics API (Official UsageStatsManager Adapter) ---
     fun getRealAppUsage(context: Context, periodDays: Int): List<AppUsage>
     fun hasUsagePermission(context: Context): Boolean
+
+    // --- Life Value Tracking ---
+    fun observeLifeValueLogs(): Flow<List<com.example.domain.model.LifeValueLog>>
+    suspend fun saveLifeValueLog(log: com.example.domain.model.LifeValueLog)
 }

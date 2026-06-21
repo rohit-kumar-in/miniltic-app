@@ -80,7 +80,10 @@ data class LauncherUiState(
     // customization & well-being extensions
     val gridColumns: Int = 1,
     val dockScale: Float = 1.0f,
-    val perAppGrayscaleList: List<String> = emptyList()
+    val perAppGrayscaleList: List<String> = emptyList(),
+    
+    // Life value logs
+    val lifeValueLogs: List<com.example.domain.model.LifeValueLog> = emptyList()
 )
 
 class LauncherViewModel(
@@ -175,6 +178,13 @@ class LauncherViewModel(
         viewModelScope.launch {
             repository.observeFocusSessions().collect { sessions ->
                 _uiState.update { it.copy(completedFocusSessions = sessions) }
+            }
+        }
+
+        // Observe Life Value Logs
+        viewModelScope.launch {
+            repository.observeLifeValueLogs().collect { logs ->
+                _uiState.update { it.copy(lifeValueLogs = logs) }
             }
         }
 

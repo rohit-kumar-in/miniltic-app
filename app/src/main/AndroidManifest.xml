@@ -68,6 +68,14 @@
             android:name=".service.FocusTimerForegroundService"
             android:exported="false" />
 
+        <activity
+            android:name=".presentation.launcher.LifeValueReflectionActivity"
+            android:theme="@style/Theme.MyApplication"
+            android:noHistory="true"
+            android:excludeFromRecents="true" />
+        <activity
+            android:name=".presentation.launcher.WellnessWallpaperActivity"
+            android:theme="@style/Theme.MyApplication" />
     </application>
 
 </manifest>

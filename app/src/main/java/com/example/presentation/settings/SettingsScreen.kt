@@ -1,5 +1,6 @@
 package com.example.presentation.settings
 
+import android.content.Intent
 import android.os.Build
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -173,6 +174,27 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.secondary,
                         letterSpacing = 1.sp,
                     )
+                }
+
+                // Wellness Wallpaper trigger
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                val intent = Intent(context, com.example.presentation.launcher.WellnessWallpaperActivity::class.java)
+                                context.startActivity(intent)
+                            }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text("Wellness Wallpaper System", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                            Text("Dynamic wallpapers based on your current well-being states", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                        }
+                        Text("CONFIGURE →", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
 
                 // Custom Themes Row

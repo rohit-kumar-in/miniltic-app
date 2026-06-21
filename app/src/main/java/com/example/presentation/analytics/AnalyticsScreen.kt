@@ -170,6 +170,45 @@ fun AnalyticsScreen(
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Life Value Widget
+                Text(
+                    text = "Life Value Insights",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    val highValCount = state.lifeValueLogs.count { it.valueCategory == "High Value" }
+                    val medValCount = state.lifeValueLogs.count { it.valueCategory == "Medium Value" }
+                    val lowValCount = state.lifeValueLogs.count { it.valueCategory == "Low Value" }
+                    val totalLogs = state.lifeValueLogs.size
+                    
+                    if (totalLogs == 0) {
+                        Text("No life value reflections completed yet.", fontSize = 12.sp, color = MaterialTheme.colorScheme.secondary)
+                    } else {
+                        val hw = (highValCount / totalLogs.toFloat())
+                        val mw = (medValCount / totalLogs.toFloat())
+                        val lw = (lowValCount / totalLogs.toFloat())
+                        
+                        Box(modifier = Modifier.weight(hw.coerceAtLeast(0.01f)).height(8.dp).background(Color(0xFF34D399), RoundedCornerShape(2.dp)))
+                        Box(modifier = Modifier.weight(mw.coerceAtLeast(0.01f)).height(8.dp).background(Color(0xFFFBBF24), RoundedCornerShape(2.dp)))
+                        Box(modifier = Modifier.weight(lw.coerceAtLeast(0.01f)).height(8.dp).background(Color(0xFFF87171), RoundedCornerShape(2.dp)))
+                    }
+                }
+                if (state.lifeValueLogs.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Recent Insight: ${state.lifeValueLogs.last().response.takeIf { it.isNotBlank() } ?: "User selected " + state.lifeValueLogs.last().valueCategory}",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.secondary,
+                        maxLines = 2,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(20.dp))
